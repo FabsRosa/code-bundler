@@ -173,6 +173,10 @@ function FileViewer({ file, onClose }) {
   const [error, setError] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  if (!file || file.isDirectory) {
+    return null;
+  }
+
   useEffect(() => {
     if (file) {
       loadFileContent();

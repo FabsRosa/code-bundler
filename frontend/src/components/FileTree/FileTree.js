@@ -126,6 +126,25 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
   const [searchTerm, setSearchTerm] = useState('');
   const [forcedFiles, setForcedFiles] = useState(new Set());
 
+  if (!tree || !Array.isArray(tree)) {
+    return (
+      <TreeContainer>
+        <TreeHeader>
+          <Title>Project Files</Title>
+          <SearchInput
+            type="text"
+            placeholder="Search files..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </TreeHeader>
+        <TreeContent>
+          <EmptyState>No files available</EmptyState>
+        </TreeContent>
+      </TreeContainer>
+    );
+  }
+
   const toggleFolder = (folderPath) => {
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
@@ -138,15 +157,13 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     });
   };
 
-  const handleFileToggle = (file, event) => {
+  const handleFileToggle = (fileNode, event) => {
     event.stopPropagation();
 
-    if (file.isExcluded && !forcedFiles.has(file.fullPath)) {
-      // First click on excluded file: force it
-      setForcedFiles(prev => new Set(prev).add(file.fullPath));
+    if (fileNode.isExcluded && !forcedFiles.has(fileNode.filePath)) {
+      setForcedFiles(prev => new Set(prev).add(fileNode.filePath));
     } else {
-      // Normal toggle
-      onFileToggle(file.fullPath, file.isExcluded, forcedFiles.has(file.fullPath));
+      onFileToggle(fileNode.filePath, fileNode.isExcluded, forcedFiles.has(fileNode.filePath));
     }
   };
 
@@ -176,6 +193,8 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
   }, [tree, searchTerm]);
 
   const renderTree = (nodes, depth = 0) => {
+    if (!nodes || !Array.isArray(nodes)) return null;
+
     return nodes.map(node => {
       const isExpanded = expandedFolders.has(node.fullPath);
       const isSelected = selectedFile?.fullPath === node.fullPath;
@@ -231,8 +250,8 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
                 <Checkbox
                   type="checkbox"
                   checked={isChecked}
-                  disabled={node.isExcluded && !isForced}
-                  onChange={(e) => handleFileToggle(node, e)}
+                  disabled={fileNode.isExcluded && !isForced}
+                  onChange={(e) => handleFileToggle(fileNode, e)}
                   onClick={(e) => e.stopPropagation()}
                 />
               </>

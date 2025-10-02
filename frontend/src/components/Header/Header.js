@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import styled from 'styled-components';
-import { FolderOpen, Package, Download, Settings } from 'lucide-react';
+import { FolderOpen, Package, Download } from 'lucide-react';
 
 const HeaderContainer = styled.header`
   background: ${props => props.theme.surface};
@@ -77,8 +77,16 @@ const Button = styled.button`
   }
 `;
 
-const DirectoryInput = styled.input`
+const FileInput = styled.input`
   display: none;
+`;
+
+const ProjectInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: ${props => props.theme.textSecondary};
+  font-size: 0.875rem;
 `;
 
 function Header({
@@ -87,32 +95,34 @@ function Header({
   totalFilesCount,
   onGenerateBundle,
   loading,
-  bundle
+  bundle,
+  currentProject
 }) {
-  const handleNewProject = async () => {
-    // For web implementation, we'll use a text input for directory path
-    // In a real Electron app, this would use electron.dialog
-    const path = prompt('Enter the absolute path to your project directory:');
-    if (path) {
-      try {
-        const response = await fetch('/api/scan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ rootPath: path }),
-        });
+  const fileInputRef = useRef(null);
 
-        if (!response.ok) {
-          throw new Error('Failed to scan directory');
-        }
+  const handleSelectProject = () => {
+    fileInputRef.current?.click();
+  };
 
-        const data = await response.json();
-        onProjectSelect(data);
-      } catch (error) {
-        console.error('Failed to scan project:', error);
-        alert('Failed to scan project folder. Make sure the path is correct and the server has access.');
-      }
+  const handleFileSelection = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    try {
+      // Get the common path to determine the project root
+      const paths = files.map(file => file.webkitRelativePath || file.name);
+      const commonPath = findCommonPath(paths);
+
+      const projectData = {
+        files: files,
+        rootPath: commonPath,
+        name: commonPath.split('/').filter(Boolean).pop() || 'Project'
+      };
+
+      onProjectSelect(projectData);
+    } catch (error) {
+      console.error('Error processing files:', error);
+      alert('Error processing selected files. Please try again.');
     }
   };
 
@@ -138,7 +148,14 @@ function Header({
           Code Bundler
         </Logo>
 
-        {(selectedFilesCount !== undefined && totalFilesCount !== undefined) && (
+        {currentProject && (
+          <ProjectInfo>
+            <FolderOpen size={16} />
+            {currentProject.name}
+          </ProjectInfo>
+        )}
+
+        {(selectedFilesCount !== undefined && totalFilesCount !== undefined && totalFilesCount > 0) && (
           <Stats>
             <StatItem>
               <strong>{selectedFilesCount}</strong> of <strong>{totalFilesCount}</strong> files selected
@@ -149,9 +166,9 @@ function Header({
 
       <RightSection>
         <Actions>
-          <Button onClick={handleNewProject}>
+          <Button onClick={handleSelectProject}>
             <FolderOpen size={16} />
-            New Project
+            Select Project Folder
           </Button>
 
           <Button
@@ -169,8 +186,39 @@ function Header({
           </Button>
         </Actions>
       </RightSection>
+
+      <FileInput
+        ref={fileInputRef}
+        type="file"
+        webkitdirectory="true"
+        directory="true"
+        multiple
+        onChange={handleFileSelection}
+      />
     </HeaderContainer>
   );
+}
+
+// Helper function to find common path
+function findCommonPath(paths) {
+  if (paths.length === 0) return '';
+  if (paths.length === 1) return paths[0].split('/').slice(0, -1).join('/');
+
+  const splitPaths = paths.map(path => path.split('/'));
+  const commonParts = [];
+
+  const minLength = Math.min(...splitPaths.map(path => path.length));
+
+  for (let i = 0; i < minLength; i++) {
+    const part = splitPaths[0][i];
+    if (splitPaths.every(path => path[i] === part)) {
+      commonParts.push(part);
+    } else {
+      break;
+    }
+  }
+
+  return commonParts.join('/');
 }
 
 export default Header;

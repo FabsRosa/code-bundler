@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { FolderOpen, Sun, Moon } from 'lucide-react';
 
@@ -171,38 +171,82 @@ function App() {
   const [project, setProject] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState(new Set());
-  const [fileContents, setFileContents] = useState({});
   const [bundle, setBundle] = useState('');
   const [loading, setLoading] = useState(false);
 
   const currentTheme = theme === 'dark' ? darkTheme : lightTheme;
 
   const handleProjectSelect = useCallback(async (projectData) => {
-    setProject(projectData);
+    if (!projectData || !projectData.files) {
+      console.error('Invalid project data');
+      return;
+    }
+
+    // Build file tree from the selected files
+    const fileTree = buildFileTree(projectData.files, projectData.rootPath);
+
     // Auto-select all non-excluded files
     const selectAllFiles = (nodes) => {
       const selected = new Set();
+
+      if (!nodes || !Array.isArray(nodes)) return selected;
+
       nodes.forEach(node => {
-        if (!node.isExcluded && !node.isDirectory) {
-          selected.add(node.fullPath);
+        if (!node.isExcluded && !node.isDirectory && node.filePath) {
+          selected.add(node.filePath);
         }
-        if (node.children) {
-          selectAllFiles(node.children).forEach(path => selected.add(path));
+        if (node.children && Array.isArray(node.children)) {
+          const childSelections = selectAllFiles(node.children);
+          childSelections.forEach(path => selected.add(path));
         }
       });
       return selected;
     };
 
-    const initialSelected = selectAllFiles(projectData.tree);
+    const initialSelected = selectAllFiles(fileTree);
     setSelectedFiles(initialSelected);
+
+    // Update project with the built tree
+    setProject({
+      ...projectData,
+      tree: fileTree
+    });
+
+    // Clear previous states
+    setSelectedFile(null);
+    setBundle('');
   }, []);
+
+  const generateBundle = useCallback(async () => {
+    if (!project || !project.files || selectedFiles.size === 0) {
+      alert('No files selected or project not loaded');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const bundleContent = await generateBundleContent(
+        project.files,
+        Array.from(selectedFiles),
+        project.rootPath
+      );
+      setBundle(bundleContent);
+    } catch (error) {
+      console.error('Failed to generate bundle:', error);
+      alert('Failed to generate bundle. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [project, selectedFiles]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
   const handleFileSelect = useCallback((file) => {
-    setSelectedFile(file);
+    if (file && !file.isDirectory) {
+      setSelectedFile(file);
+    }
   }, []);
 
   const handleFileDeselect = useCallback(() => {
@@ -221,43 +265,26 @@ function App() {
     });
   }, []);
 
-  const generateBundle = useCallback(async () => {
-    if (!project || selectedFiles.size === 0) return;
+  // Safe count for header
+  const totalFilesCount = project && project.tree ? countTotalFiles(project.tree) : 0;
 
-    setLoading(true);
-    try {
-      const response = await fetch('/api/generate-bundle', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          files: Array.from(selectedFiles),
-          projectRoot: project.rootPath,
-        }),
-      });
+  // ... rest of the component remains the same until the return statement
 
-      if (!response.ok) {
-        throw new Error('Failed to generate bundle');
-      }
+  return (
+    <ThemeProvider theme={currentTheme}>
+      <GlobalStyle />
+      <AppContainer>
+        <Header
+          onProjectSelect={handleProjectSelect}
+          selectedFilesCount={selectedFiles.size}
+          totalFilesCount={totalFilesCount}
+          onGenerateBundle={generateBundle}
+          loading={loading}
+          bundle={bundle}
+          currentProject={project}
+        />
 
-      const data = await response.json();
-      setBundle(data.bundle);
-    } catch (error) {
-      console.error('Failed to generate bundle:', error);
-      // You might want to show a toast notification here
-    } finally {
-      setLoading(false);
-    }
-  }, [project, selectedFiles]);
-
-
-  if (!project) {
-    return (
-      <ThemeProvider theme={currentTheme}>
-        <GlobalStyle />
-        <AppContainer>
-          <Header onProjectSelect={handleProjectSelect} />
+        {!project ? (
           <MainContent>
             <EmptyState>
               <EmptyStateIcon>
@@ -268,60 +295,43 @@ function App() {
                 Select a project folder to start bundling your files for AI analysis.
                 The application will automatically exclude common unnecessary files and folders.
               </EmptyStateDescription>
-              <SelectButton onClick={() => document.getElementById('folder-input')?.click()}>
+              <SelectButton onClick={() => document.querySelector('input[type="file"]')?.click()}>
                 Select Project Folder
               </SelectButton>
             </EmptyState>
           </MainContent>
-          <ThemeToggle onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </ThemeToggle>
-        </AppContainer>
-      </ThemeProvider>
-    );
-  }
-
-  return (
-    <ThemeProvider theme={currentTheme}>
-      <GlobalStyle />
-      <AppContainer>
-        <Header
-          onProjectSelect={handleProjectSelect}
-          selectedFilesCount={selectedFiles.size}
-          totalFilesCount={countTotalFiles(project.tree)}
-          onGenerateBundle={generateBundle}
-          loading={loading}
-          bundle={bundle}
-        />
-        <MainContent>
-          <ResizablePanels
-            fileTree={
-              <FileTree
-                tree={project.tree}
-                selectedFiles={selectedFiles}
-                onFileToggle={handleFileToggle}
-                onFileSelect={handleFileSelect}
-                selectedFile={selectedFile}
-              />
-            }
-            fileViewer={
-              selectedFile && (
-                <FileViewer
-                  file={selectedFile}
-                  onClose={handleFileDeselect}
+        ) : (
+          <MainContent>
+            <ResizablePanels
+              fileTree={
+                <FileTree
+                  tree={project.tree}
+                  selectedFiles={selectedFiles}
+                  onFileToggle={handleFileToggle}
+                  onFileSelect={handleFileSelect}
+                  selectedFile={selectedFile}
                 />
-              )
-            }
-            bundleViewer={
-              <BundleViewer
-                bundle={bundle}
-                loading={loading}
-                selectedFilesCount={selectedFiles.size}
-              />
-            }
-            hasFileViewer={!!selectedFile}
-          />
-        </MainContent>
+              }
+              fileViewer={
+                selectedFile && (
+                  <FileViewer
+                    file={selectedFile}
+                    onClose={handleFileDeselect}
+                  />
+                )
+              }
+              bundleViewer={
+                <BundleViewer
+                  bundle={bundle}
+                  loading={loading}
+                  selectedFilesCount={selectedFiles.size}
+                />
+              }
+              hasFileViewer={!!selectedFile}
+            />
+          </MainContent>
+        )}
+
         <ThemeToggle onClick={toggleTheme}>
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
         </ThemeToggle>
@@ -330,18 +340,144 @@ function App() {
   );
 }
 
+// Read file content
+function readFileContent(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
 // Helper function to count total files
 function countTotalFiles(nodes) {
+  if (!nodes || !Array.isArray(nodes)) return 0;
+
   let count = 0;
   nodes.forEach(node => {
     if (!node.isDirectory) {
       count++;
     }
-    if (node.children) {
+    if (node.children && Array.isArray(node.children)) {
       count += countTotalFiles(node.children);
     }
   });
   return count;
+}
+
+// Helper function to build file tree from FileList
+function buildFileTree(files, rootPath) {
+  const root = {};
+
+  // Ensure files is an array
+  if (!files || !Array.isArray(files)) {
+    return [];
+  }
+
+  files.forEach(file => {
+    const path = file.webkitRelativePath || file.name;
+    const parts = path.split('/');
+    let current = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isDirectory = i < parts.length - 1;
+
+      if (!current[part]) {
+        current[part] = {
+          name: part,
+          path: parts.slice(0, i + 1).join('/'),
+          filePath: isDirectory ? null : path,
+          isDirectory,
+          isExcluded: isExcluded(part, isDirectory),
+          children: {},
+          file: isDirectory ? null : file,
+          lineCount: isDirectory ? 0 : countFileLines(file)
+        };
+      }
+
+      if (isDirectory) {
+        current = current[part].children;
+      }
+    }
+  });
+
+  return convertToArray(root);
+}
+
+function convertToArray(node) {
+  const array = Object.values(node).map(item => ({
+    ...item,
+    children: item.children ? convertToArray(item.children) : []
+  }));
+
+  return array.sort((a, b) => {
+    if (a.isDirectory && !b.isDirectory) return -1;
+    if (!a.isDirectory && b.isDirectory) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// Count lines in a file (estimate from file size)
+function countFileLines(file) {
+  // Estimate lines based on file size (rough average of 50 chars per line)
+  return Math.ceil(file.size / 50);
+}
+
+// Exclusion logic
+function isExcluded(name, isDirectory) {
+  const excludedFolders = ['.git', '.vscode', 'node_modules', '__pycache__', 'target', 'dist', 'build', '.next', '.nuxt'];
+  const excludedFiles = ['.gitignore', '.env', 'package-lock.json', 'yarn.lock', '.DS_Store', 'Thumbs.db'];
+
+  if (isDirectory) {
+    return excludedFolders.includes(name) || excludedFolders.some(folder => name.includes(folder));
+  }
+  return excludedFiles.includes(name) || excludedFiles.some(file => name.endsWith(file));
+}
+
+// Generate bundle content
+async function generateBundleContent(files, selectedFilePaths, rootPath) {
+  const bundleParts = [];
+  let totalFiles = 0;
+  let totalLines = 0;
+
+  // Add header
+  bundleParts.push(`PROJECT BUNDLE FOR AI ANALYSIS`);
+  bundleParts.push(`==============================`);
+  bundleParts.push(`This file contains multiple project files separated by file headers.`);
+  bundleParts.push(`Each file is prefixed with "##### FILE: [relative_path] #####"`);
+  bundleParts.push(`Files are separated by "##### END FILE #####"`);
+  bundleParts.push(`Total files: ${selectedFilePaths.length}`);
+  bundleParts.push(`==============================`);
+  bundleParts.push(``);
+
+  // Process selected files
+  for (const filePath of selectedFilePaths) {
+    const file = files.find(f => (f.webkitRelativePath === filePath) || (f.name === filePath));
+    if (!file) continue;
+
+    try {
+      const content = await readFileContent(file);
+      const relativePath = file.webkitRelativePath || file.name;
+      const lineCount = content.split('\n').length;
+
+      totalFiles++;
+      totalLines += lineCount;
+
+      bundleParts.push(`##### FILE: ${relativePath} #####`);
+      bundleParts.push(content);
+      bundleParts.push(`##### END FILE #####`);
+      bundleParts.push(``);
+    } catch (error) {
+      console.warn(`Skipping file ${filePath}:`, error);
+    }
+  }
+
+  // Update header with actual counts
+  bundleParts[5] = `Total files: ${totalFiles}, Total lines: ${totalLines}`;
+
+  return bundleParts.join('\n');
 }
 
 export default App;
