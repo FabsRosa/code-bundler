@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { X, File as FileIcon, Download, Copy } from 'lucide-react';
-import axios from 'axios';
 
 const ViewerContainer = styled.div`
   height: 100%;
@@ -173,10 +172,6 @@ function FileViewer({ file, onClose }) {
   const [error, setError] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  if (!file || file.isDirectory) {
-    return null;
-  }
-
   useEffect(() => {
     if (file) {
       loadFileContent();
@@ -184,20 +179,33 @@ function FileViewer({ file, onClose }) {
   }, [file]);
 
   const loadFileContent = async () => {
-    if (!file || file.isDirectory) return;
+    if (!file || file.isDirectory || !file.file) {
+      setError('File not available for preview');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.get(`/api/file?filePath=${encodeURIComponent(file.fullPath)}`);
-      setContent(response.data.content);
+      const fileContent = await readFileContent(file.file);
+      setContent(fileContent);
     } catch (err) {
       console.error('Failed to load file content:', err);
       setError('Failed to load file content. The file might be binary or too large.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Read file content from File object
+  const readFileContent = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
   };
 
   const handleCopy = async () => {

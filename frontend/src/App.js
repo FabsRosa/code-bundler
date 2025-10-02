@@ -185,25 +185,27 @@ function App() {
     // Build file tree from the selected files
     const fileTree = buildFileTree(projectData.files, projectData.rootPath);
 
-    // Auto-select all non-excluded files
-    const selectAllFiles = (nodes) => {
+    // Auto-select only non-excluded files
+    const selectNonExcludedFiles = (nodes) => {
       const selected = new Set();
 
       if (!nodes || !Array.isArray(nodes)) return selected;
 
       nodes.forEach(node => {
+        // Only select files that are NOT excluded
         if (!node.isExcluded && !node.isDirectory && node.filePath) {
           selected.add(node.filePath);
         }
+        // Recursively process children
         if (node.children && Array.isArray(node.children)) {
-          const childSelections = selectAllFiles(node.children);
+          const childSelections = selectNonExcludedFiles(node.children);
           childSelections.forEach(path => selected.add(path));
         }
       });
       return selected;
     };
 
-    const initialSelected = selectAllFiles(fileTree);
+    const initialSelected = selectNonExcludedFiles(fileTree);
     setSelectedFiles(initialSelected);
 
     // Update project with the built tree
@@ -254,6 +256,11 @@ function App() {
   }, []);
 
   const handleFileToggle = useCallback((filePath, isExcluded, isForced) => {
+    // Don't allow toggling if the file is effectively excluded and not forced
+    if (isExcluded && !isForced) {
+      return;
+    }
+
     setSelectedFiles(prev => {
       const newSelected = new Set(prev);
       if (newSelected.has(filePath)) {
@@ -267,8 +274,6 @@ function App() {
 
   // Safe count for header
   const totalFilesCount = project && project.tree ? countTotalFiles(project.tree) : 0;
-
-  // ... rest of the component remains the same until the return statement
 
   return (
     <ThemeProvider theme={currentTheme}>
@@ -340,16 +345,6 @@ function App() {
   );
 }
 
-// Read file content
-function readFileContent(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
-}
-
 // Helper function to count total files
 function countTotalFiles(nodes) {
   if (!nodes || !Array.isArray(nodes)) return 0;
@@ -366,15 +361,52 @@ function countTotalFiles(nodes) {
   return count;
 }
 
-// Helper function to build file tree from FileList
+// Enhanced exclusion logic
+function isExcluded(name, isDirectory) {
+  const excludedFolders = [
+    '.git', '.vscode', 'node_modules', '__pycache__', 'target',
+    'dist', 'build', '.next', '.nuxt', '.idea', '.vs', 'coverage',
+    '__tests__', 'test', 'tests', 'tmp', 'temp', '.husky', '.github',
+    'coverage', '.nyc_output', '.parcel-cache', '.docker', '.config',
+    'logs', 'log', 'cache', '.cache', 'backup', 'backups'
+  ];
+
+  const excludedFiles = [
+    '.gitignore', '.env', 'package-lock.json', 'yarn.lock',
+    '.DS_Store', 'Thumbs.db', '.log', '.tmp', '.cache',
+    '*.min.js', '*.min.css', '*.map', '*.log', '*.tar', '*.gz',
+    '*.zip', '*.pdf', '*.png', '*.jpg', '*.jpeg', '*.gif', '*.ico',
+    '*.svg', '*.woff', '*.woff2', '*.ttf', '*.eot', '*.bin'
+  ];
+
+  if (isDirectory) {
+    return excludedFolders.includes(name) ||
+      excludedFolders.some(folder => name.includes(folder));
+  }
+
+  // Check exact matches
+  if (excludedFiles.includes(name)) return true;
+
+  // Check pattern matches
+  return excludedFiles.some(pattern => {
+    if (pattern.includes('*')) {
+      const regexPattern = '^' + pattern.replace(/\*/g, '.*') + '$';
+      const regex = new RegExp(regexPattern);
+      return regex.test(name);
+    }
+    return name.endsWith(pattern);
+  });
+}
+
+// Build file tree with proper exclusion inheritance
 function buildFileTree(files, rootPath) {
   const root = {};
 
-  // Ensure files is an array
   if (!files || !Array.isArray(files)) {
     return [];
   }
 
+  // First pass: build basic structure
   files.forEach(file => {
     const path = file.webkitRelativePath || file.name;
     const parts = path.split('/');
@@ -383,12 +415,13 @@ function buildFileTree(files, rootPath) {
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isDirectory = i < parts.length - 1;
+      const nodePath = parts.slice(0, i + 1).join('/');
 
       if (!current[part]) {
         current[part] = {
           name: part,
-          path: parts.slice(0, i + 1).join('/'),
-          filePath: isDirectory ? null : path,
+          path: nodePath,
+          filePath: nodePath,
           isDirectory,
           isExcluded: isExcluded(part, isDirectory),
           children: {},
@@ -403,16 +436,23 @@ function buildFileTree(files, rootPath) {
     }
   });
 
-  return convertToArray(root);
-}
+  // Second pass: inherit exclusion from parents
+  const applyParentExclusions = (nodes, parentExcluded = false) => {
+    return Object.values(nodes).map(node => {
+      const isNodeExcluded = parentExcluded || node.isExcluded;
 
-function convertToArray(node) {
-  const array = Object.values(node).map(item => ({
-    ...item,
-    children: item.children ? convertToArray(item.children) : []
-  }));
+      return {
+        ...node,
+        isExcluded: isNodeExcluded,
+        children: node.children ? applyParentExclusions(node.children, isNodeExcluded) : []
+      };
+    });
+  };
 
-  return array.sort((a, b) => {
+  const treeWithExclusions = applyParentExclusions(root);
+
+  // Sort the tree
+  return treeWithExclusions.sort((a, b) => {
     if (a.isDirectory && !b.isDirectory) return -1;
     if (!a.isDirectory && b.isDirectory) return 1;
     return a.name.localeCompare(b.name);
@@ -421,19 +461,7 @@ function convertToArray(node) {
 
 // Count lines in a file (estimate from file size)
 function countFileLines(file) {
-  // Estimate lines based on file size (rough average of 50 chars per line)
   return Math.ceil(file.size / 50);
-}
-
-// Exclusion logic
-function isExcluded(name, isDirectory) {
-  const excludedFolders = ['.git', '.vscode', 'node_modules', '__pycache__', 'target', 'dist', 'build', '.next', '.nuxt'];
-  const excludedFiles = ['.gitignore', '.env', 'package-lock.json', 'yarn.lock', '.DS_Store', 'Thumbs.db'];
-
-  if (isDirectory) {
-    return excludedFolders.includes(name) || excludedFolders.some(folder => name.includes(folder));
-  }
-  return excludedFiles.includes(name) || excludedFiles.some(file => name.endsWith(file));
 }
 
 // Generate bundle content
@@ -478,6 +506,16 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
   bundleParts[5] = `Total files: ${totalFiles}, Total lines: ${totalLines}`;
 
   return bundleParts.join('\n');
+}
+
+// Read file content
+function readFileContent(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
 }
 
 export default App;

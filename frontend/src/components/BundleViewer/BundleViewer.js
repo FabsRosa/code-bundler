@@ -135,10 +135,24 @@ const Warning = styled.div`
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   margin: 1rem;
+  margin-bottom: 0;
   background: ${props => props.theme.surfaceElevated};
   border: 1px solid ${props => props.theme.danger};
   border-radius: 6px;
   color: ${props => props.theme.danger};
+  font-size: 0.875rem;
+`;
+
+const Info = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem;
+  background: ${props => props.theme.surfaceElevated};
+  border: 1px solid ${props => props.theme.accent};
+  border-radius: 6px;
+  color: ${props => props.theme.accent};
   font-size: 0.875rem;
 `;
 
@@ -150,8 +164,10 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
 
     const lines = bundle.split('\n').length;
     const files = (bundle.match(/##### FILE:/g) || []).length;
+    const sizeInBytes = new Blob([bundle]).size;
+    const sizeInKB = Math.round(sizeInBytes / 1024);
 
-    return { lines, files };
+    return { lines, files, sizeInBytes, sizeInKB };
   }, [bundle]);
 
   const handleCopy = async () => {
@@ -240,6 +256,9 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
               <StatItem>
                 <strong>{bundleStats.lines}</strong> lines
               </StatItem>
+              <StatItem>
+                <strong>{bundleStats.sizeInKB}</strong> KB
+              </StatItem>
             </>
           )}
         </Stats>
@@ -263,10 +282,10 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
         </Actions>
       </ViewerHeader>
 
-      {bundle.length > 100000 && (
+      {bundleStats && bundleStats.sizeInKB > 180 && (
         <Warning>
           <AlertCircle size={16} />
-          Large bundle detected ({Math.round(bundle.length / 1024)}KB). Some AI models may have token limits.
+          Large bundle detected ({bundleStats.sizeInKB}KB). Some AI models may have token limits.
         </Warning>
       )}
 
