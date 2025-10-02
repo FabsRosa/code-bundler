@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
 const PanelsContainer = styled.div`
@@ -49,17 +49,16 @@ const VerticalResizer = styled(Resizer)`
 function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) {
   const [leftPanelWidth, setLeftPanelWidth] = useState(30);
   const [middlePanelWidth, setMiddlePanelWidth] = useState(35);
-  const [isResizing, setIsResizing] = useState(false);
+  const [isResizing, setIsResizing] = useState(null);
+  const containerRef = useRef(null);
 
   // Adjust panels when fileViewer appears/disappears
   useEffect(() => {
     if (!hasFileViewer && middlePanelWidth > 0) {
-      // When fileViewer disappears, redistribute space
       const totalWidth = leftPanelWidth + middlePanelWidth;
       setLeftPanelWidth(totalWidth);
       setMiddlePanelWidth(0);
     } else if (hasFileViewer && middlePanelWidth === 0) {
-      // When fileViewer appears, set default sizes
       setLeftPanelWidth(30);
       setMiddlePanelWidth(35);
     }
@@ -70,14 +69,13 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
   }, []);
 
   const stopResizing = useCallback(() => {
-    setIsResizing(false);
+    setIsResizing(null);
   }, []);
 
   const resize = useCallback((mouseMoveEvent) => {
-    if (!isResizing) return;
+    if (!isResizing || !containerRef.current) return;
 
-    const container = mouseMoveEvent.currentTarget.parentElement;
-    const containerRect = container.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
     const containerWidth = containerRect.width;
     const mouseX = mouseMoveEvent.clientX - containerRect.left;
     const percentage = (mouseX / containerWidth) * 100;
@@ -91,12 +89,15 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
   }, [isResizing, leftPanelWidth]);
 
   useEffect(() => {
+    const handleMouseMove = (e) => resize(e);
+    const handleMouseUp = () => stopResizing();
+
     if (isResizing) {
-      document.addEventListener('mousemove', resize);
-      document.addEventListener('mouseup', stopResizing);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
       return () => {
-        document.removeEventListener('mousemove', resize);
-        document.removeEventListener('mouseup', stopResizing);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
       };
     }
   }, [isResizing, resize, stopResizing]);
@@ -104,7 +105,7 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
   const rightPanelWidth = 100 - leftPanelWidth - middlePanelWidth;
 
   return (
-    <PanelsContainer onMouseMove={resize} onMouseUp={stopResizing}>
+    <PanelsContainer ref={containerRef}>
       {/* File Tree Panel */}
       <Panel style={{ width: `${leftPanelWidth}%` }}>
         {fileTree}

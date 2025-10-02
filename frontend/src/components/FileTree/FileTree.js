@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Search, X } from 'lucide-react';
 
 const TreeContainer = styled.div`
   height: 100%;
@@ -24,9 +24,14 @@ const Title = styled.h3`
   margin-bottom: 0.5rem;
 `;
 
+const SearchContainer = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
 const SearchInput = styled.input`
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.5rem 2rem 0.5rem 0.5rem;
   border: 1px solid ${props => props.theme.border};
   border-radius: 4px;
   background: ${props => props.theme.background};
@@ -37,6 +42,39 @@ const SearchInput = styled.input`
     outline: none;
     border-color: ${props => props.theme.accent};
   }
+`;
+
+const SearchIcon = styled.div`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: ${props => props.theme.textSecondary};
+`;
+
+const ClearSearchButton = styled.button`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: ${props => props.theme.textSecondary};
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 3px;
+  
+  &:hover {
+    background: ${props => props.theme.surfaceElevated};
+    color: ${props => props.theme.accent};
+  }
+`;
+
+const SearchStats = styled.div`
+  font-size: 0.75rem;
+  color: ${props => props.theme.textSecondary};
+  margin-top: 0.5rem;
+  text-align: center;
 `;
 
 const TreeContent = styled.div`
@@ -96,7 +134,7 @@ const NodeName = styled.span`
 const LineCount = styled.span`
   font-size: 0.75rem;
   color: ${props => props.theme.text};
-  background: ${props => props.isFolder ? '#7c2d12' : props.theme.background};
+  background: ${props => props.isFolder ? '#f59f0b42' : props.theme.background};
   padding: 0.125rem 0.375rem;
   border-radius: 12px;
   min-width: 2rem;
@@ -108,15 +146,15 @@ const Checkbox = styled.div`
   width: 16px;
   height: 16px;
   border: 1px solid ${props => {
-    if (props.isFolder && props.checked === 'partial') return '#f59e0b';
-    if (props.isFolder && props.checked) return '#f59e0b';
+    if (props.isFolder && props.checked === 'partial') return '#c07a00ff';
+    if (props.isFolder && props.checked) return '#c07a00ff';
     return props.theme.border;
   }};
   border-radius: 3px;
   background: ${props => {
     if (props.disabled) return props.theme.border;
     if (props.isFolder && props.checked === 'partial') return 'rgba(245, 158, 11, 0.3)';
-    if (props.isFolder && props.checked) return '#f59e0b';
+    if (props.isFolder && props.checked) return '#c07a00ff';
     if (props.checked) return props.theme.accent;
     return 'transparent';
   }};
@@ -153,6 +191,18 @@ const EmptyState = styled.div`
   font-size: 0.875rem;
 `;
 
+// Helper function to flatten tree for counting (defined outside component)
+const flattenTree = (nodes) => {
+  let allNodes = [];
+  nodes.forEach(node => {
+    allNodes.push(node);
+    if (node.children) {
+      allNodes = [...allNodes, ...flattenTree(node.children)];
+    }
+  });
+  return allNodes;
+};
+
 function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFile }) {
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,18 +210,15 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
 
   // Helper to check if a node is effectively blocked
   const isNodeBlocked = (node) => {
-    // If the node itself is excluded and not forced, it's blocked
     if (node.isExcluded && !forcedPaths.has(node.filePath)) {
       return true;
     }
 
-    // Check if any parent is excluded and not forced
     let currentPath = node.filePath;
     const pathParts = currentPath.split('/');
 
     for (let i = pathParts.length - 1; i > 0; i--) {
       const parentPath = pathParts.slice(0, i).join('/');
-      // If we find a parent that is excluded and not forced, this node is blocked
       if (tree.some(n => n.filePath === parentPath && n.isExcluded && !forcedPaths.has(parentPath))) {
         return true;
       }
@@ -179,6 +226,60 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
 
     return false;
   };
+
+  // Enhanced search filtering with proper match counting
+  const { filteredTree, matchCount } = useMemo(() => {
+    if (!tree || !Array.isArray(tree)) {
+      return { filteredTree: [], matchCount: 0 };
+    }
+
+    if (!searchTerm.trim()) {
+      return {
+        filteredTree: tree,
+        matchCount: 0
+      };
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    let totalMatchesCount = 0;
+
+    const filterNodes = (nodes) => {
+      return nodes.filter(node => {
+        const matchesSearch = node.name.toLowerCase().includes(searchLower);
+
+        if (node.isDirectory) {
+          const filteredChildren = filterNodes(node.children || []);
+          const hasMatchingChildren = filteredChildren.length > 0;
+
+          // Auto-expand folders that contain matches
+          if (hasMatchingChildren && !expandedFolders.has(node.filePath)) {
+            setExpandedFolders(prev => new Set(prev).add(node.filePath));
+          }
+
+          return matchesSearch || hasMatchingChildren;
+        } else {
+          if (matchesSearch && !isNodeBlocked(node)) {
+            totalMatchesCount++;
+          }
+          return matchesSearch;
+        }
+      }).map(node => {
+        if (node.isDirectory) {
+          return {
+            ...node,
+            children: filterNodes(node.children || [])
+          };
+        }
+        return node;
+      });
+    };
+
+    const filtered = filterNodes(tree);
+    return {
+      filteredTree: filtered,
+      matchCount: totalMatchesCount
+    };
+  }, [tree, searchTerm, expandedFolders, forcedPaths]);
 
   // Helper to get all file paths in a folder (recursive)
   const getAllFilePathsInFolder = (folderNode) => {
@@ -341,24 +442,13 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     }
   };
 
-  const filteredTree = useMemo(() => {
-    if (!tree || !Array.isArray(tree)) return [];
+  const clearSearch = () => {
+    setSearchTerm('');
+  };
 
-    if (!searchTerm) return tree;
-
-    const filterNodes = (nodes) => {
-      return nodes.filter(node => {
-        const matchesSearch = node.name.toLowerCase().includes(searchTerm.toLowerCase());
-        if (node.isDirectory) {
-          const children = filterNodes(node.children || []);
-          return matchesSearch || children.length > 0;
-        }
-        return matchesSearch;
-      });
-    };
-
-    return filterNodes(tree);
-  }, [tree, searchTerm]);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
 
   const renderTree = (nodes, depth = 0) => {
     if (!nodes || !Array.isArray(nodes)) return null;
@@ -468,12 +558,23 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
       <TreeContainer>
         <TreeHeader>
           <Title>Project Files</Title>
-          <SearchInput
-            type="text"
-            placeholder="Search files..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <SearchContainer>
+            <SearchInput
+              type="text"
+              placeholder="Search files..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            {searchTerm ? (
+              <ClearSearchButton onClick={clearSearch}>
+                <X size={14} />
+              </ClearSearchButton>
+            ) : (
+              <SearchIcon>
+                <Search size={14} />
+              </SearchIcon>
+            )}
+          </SearchContainer>
         </TreeHeader>
         <TreeContent>
           <EmptyState>No files available</EmptyState>
@@ -486,12 +587,28 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     <TreeContainer>
       <TreeHeader>
         <Title>Project Files</Title>
-        <SearchInput
-          type="text"
-          placeholder="Search files..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <SearchContainer>
+          <SearchInput
+            type="text"
+            placeholder="Search files..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+          {searchTerm ? (
+            <ClearSearchButton onClick={clearSearch}>
+              <X size={14} />
+            </ClearSearchButton>
+          ) : (
+            <SearchIcon>
+              <Search size={14} />
+            </SearchIcon>
+          )}
+        </SearchContainer>
+        {searchTerm && (
+          <SearchStats>
+            {matchCount > 0 ? `${matchCount} files found` : 'No files found'}
+          </SearchStats>
+        )}
       </TreeHeader>
 
       <TreeContent>
