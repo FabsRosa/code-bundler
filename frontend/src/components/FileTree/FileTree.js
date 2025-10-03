@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Search, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Search, X, Minus, Package } from 'lucide-react';
 
 const TreeContainer = styled.div`
   height: 100%;
@@ -15,6 +15,56 @@ const TreeHeader = styled.div`
   padding: 1rem;
   border-bottom: 1px solid ${props => props.theme.border};
   background: ${props => props.theme.surfaceElevated};
+`;
+
+const HeaderTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+`;
+
+const HeaderBottom = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ActionButton = styled.button`
+  background: transparent;
+  border: 1px solid ${props => props.theme.border};
+  color: ${props => props.theme.text};
+  padding: 0.375rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${props => props.theme.surfaceElevated};
+    border-color: ${props => props.theme.accent};
+    color: ${props => props.theme.accent};
+  }
+`;
+
+const SelectedLinesCounter = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: ${props => props.theme.textSecondary};
+  background: ${props => props.theme.background};
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid ${props => props.theme.border};
 `;
 
 const Title = styled.h3`
@@ -145,7 +195,6 @@ const LineCount = styled.span`
   min-width: 2rem;
   text-align: center;
   border: 1px solid ${props => {
-    if (props.isFolder && props.checked === 'partial') return '#00a3b907';
     if (props.isFolder) return '#00a3b9a1';
     return props.theme.accent + '99';
   }};
@@ -162,7 +211,7 @@ const Checkbox = styled.div`
   border-radius: 3px;
   background: ${props => {
     if (props.disabled) return props.theme.border;
-    if (props.isFolder && props.checked === 'partial') return '#00a3b952';
+    if (props.isFolder && props.checked === 'partial') return "#00a3b979";
     if (props.isFolder && props.checked) return '#00a3b9d5';
     if (props.checked) return props.theme.accent;
     return 'transparent';
@@ -235,6 +284,27 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
 
     return false;
   };
+
+  // Calculate total selected lines
+  const totalSelectedLines = useMemo(() => {
+    if (!tree || !Array.isArray(tree)) return 0;
+
+    let totalLines = 0;
+
+    const calculateLines = (nodes) => {
+      nodes.forEach(node => {
+        if (!node.isDirectory && selectedFiles.has(node.filePath) && !isNodeBlocked(node)) {
+          totalLines += node.lineCount || 0;
+        }
+        if (node.children && Array.isArray(node.children)) {
+          calculateLines(node.children);
+        }
+      });
+    };
+
+    calculateLines(tree);
+    return totalLines;
+  }, [tree, selectedFiles, forcedPaths]); // Add forcedPaths to dependencies
 
   // Enhanced search filtering with proper match counting
   const { filteredTree, matchCount } = useMemo(() => {
@@ -459,6 +529,11 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     setSearchTerm(e.target.value);
   };
 
+  // Collapse all folders
+  const collapseAllFolders = () => {
+    setExpandedFolders(new Set());
+  };
+
   const renderTree = (nodes, depth = 0) => {
     if (!nodes || !Array.isArray(nodes)) return null;
 
@@ -588,7 +663,65 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     return (
       <TreeContainer>
         <TreeHeader>
-          <Title>Project Files</Title>
+          <HeaderTop>
+            <Title>
+              <Package size={16} />
+              Project Files
+            </Title>
+          </HeaderTop>
+          <HeaderBottom>
+            <SearchContainer>
+              <SearchInput
+                type="text"
+                placeholder="Search files..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              {searchTerm ? (
+                <ClearSearchButton onClick={clearSearch}>
+                  <X size={14} />
+                </ClearSearchButton>
+              ) : (
+                <SearchIcon>
+                  <Search size={14} />
+                </SearchIcon>
+              )}
+            </SearchContainer>
+          </HeaderBottom>
+        </TreeHeader>
+        <TreeContent>
+          <EmptyState>No files available</EmptyState>
+        </TreeContent>
+      </TreeContainer>
+    );
+  }
+
+  return (
+    <TreeContainer>
+      <TreeHeader>
+        <HeaderTop>
+          <Title>
+            <Package size={16} />
+            Project Files
+          </Title>
+          <HeaderActions>
+            {/* Selected Lines Counter */}
+            {selectedFiles.size > 0 && (
+              <SelectedLinesCounter>
+                <Package size={12} />
+                {totalSelectedLines} lines selected
+              </SelectedLinesCounter>
+            )}
+            {/* Collapse All Button */}
+            <ActionButton
+              onClick={collapseAllFolders}
+              title="Collapse all folders"
+            >
+              <Minus size={14} />
+            </ActionButton>
+          </HeaderActions>
+        </HeaderTop>
+        <HeaderBottom>
           <SearchContainer>
             <SearchInput
               type="text"
@@ -606,40 +739,12 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
               </SearchIcon>
             )}
           </SearchContainer>
-        </TreeHeader>
-        <TreeContent>
-          <EmptyState>No files available</EmptyState>
-        </TreeContent>
-      </TreeContainer>
-    );
-  }
-
-  return (
-    <TreeContainer>
-      <TreeHeader>
-        <Title>Project Files</Title>
-        <SearchContainer>
-          <SearchInput
-            type="text"
-            placeholder="Search files..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-          />
-          {searchTerm ? (
-            <ClearSearchButton onClick={clearSearch}>
-              <X size={14} />
-            </ClearSearchButton>
-          ) : (
-            <SearchIcon>
-              <Search size={14} />
-            </SearchIcon>
+          {searchTerm && (
+            <SearchStats>
+              {matchCount > 0 ? `${matchCount} files found` : 'No files found'}
+            </SearchStats>
           )}
-        </SearchContainer>
-        {searchTerm && (
-          <SearchStats>
-            {matchCount > 0 ? `${matchCount} files found` : 'No files found'}
-          </SearchStats>
-        )}
+        </HeaderBottom>
       </TreeHeader>
 
       <TreeContent>

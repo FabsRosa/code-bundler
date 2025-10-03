@@ -51,18 +51,19 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
   const [middlePanelWidth, setMiddlePanelWidth] = useState(35);
   const [isResizing, setIsResizing] = useState(null);
   const containerRef = useRef(null);
+  const lastMiddlePanelWidthRef = useRef(35); // Remember last middle panel width
 
-  // Adjust panels when fileViewer appears/disappears
+  // When fileViewer appears/disappears, adjust the bundle panel, keep file tree consistent
   useEffect(() => {
     if (!hasFileViewer && middlePanelWidth > 0) {
-      const totalWidth = leftPanelWidth + middlePanelWidth;
-      setLeftPanelWidth(totalWidth);
+      // Store the current middle panel width before hiding
+      lastMiddlePanelWidthRef.current = middlePanelWidth;
       setMiddlePanelWidth(0);
     } else if (hasFileViewer && middlePanelWidth === 0) {
-      setLeftPanelWidth(30);
-      setMiddlePanelWidth(35);
+      // Restore the last middle panel width when showing
+      setMiddlePanelWidth(lastMiddlePanelWidthRef.current);
     }
-  }, [hasFileViewer, middlePanelWidth, leftPanelWidth]);
+  }, [hasFileViewer, middlePanelWidth]);
 
   const startResizing = useCallback((panel) => {
     setIsResizing(panel);
@@ -81,10 +82,14 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
     const percentage = (mouseX / containerWidth) * 100;
 
     if (isResizing === 'left') {
-      setLeftPanelWidth(Math.max(20, Math.min(60, percentage)));
+      // When resizing left panel, keep it within bounds
+      const newLeftWidth = Math.max(20, Math.min(60, percentage));
+      setLeftPanelWidth(newLeftWidth);
     } else if (isResizing === 'middle') {
-      const middlePercentage = Math.max(20, Math.min(60, percentage - leftPanelWidth));
-      setMiddlePanelWidth(middlePercentage);
+      // When resizing middle panel, adjust it and update the ref for remembering
+      const newMiddleWidth = Math.max(20, Math.min(60, percentage - leftPanelWidth));
+      setMiddlePanelWidth(newMiddleWidth);
+      lastMiddlePanelWidthRef.current = newMiddleWidth;
     }
   }, [isResizing, leftPanelWidth]);
 
@@ -102,32 +107,33 @@ function ResizablePanels({ fileTree, fileViewer, bundleViewer, hasFileViewer }) 
     }
   }, [isResizing, resize, stopResizing]);
 
-  const rightPanelWidth = 100 - leftPanelWidth - middlePanelWidth;
+  // Calculate right panel width based on the other two
+  const rightPanelWidth = 100 - leftPanelWidth - (hasFileViewer ? middlePanelWidth : 0);
 
   return (
     <PanelsContainer ref={containerRef}>
-      {/* File Tree Panel */}
+      {/* File Tree Panel - Always visible, consistent width */}
       <Panel style={{ width: `${leftPanelWidth}%` }}>
         {fileTree}
       </Panel>
 
-      {/* First Resizer */}
+      {/* First Resizer - Between file tree and file viewer */}
       <VerticalResizer onMouseDown={() => startResizing('left')} />
 
-      {/* File Viewer Panel */}
+      {/* File Viewer Panel - Only visible when a file is selected */}
       <Panel
-        style={{ width: `${middlePanelWidth}%` }}
+        style={{ width: `${hasFileViewer ? middlePanelWidth : 0}%` }}
         collapsed={!hasFileViewer}
       >
         {fileViewer}
       </Panel>
 
-      {/* Second Resizer */}
+      {/* Second Resizer - Between file viewer and bundle (only when file viewer is visible) */}
       {hasFileViewer && (
         <VerticalResizer onMouseDown={() => startResizing('middle')} />
       )}
 
-      {/* Bundle Viewer Panel */}
+      {/* Bundle Viewer Panel - Takes remaining space */}
       <Panel style={{ width: `${rightPanelWidth}%` }}>
         {bundleViewer}
       </Panel>

@@ -376,7 +376,12 @@ function isExcluded(name, isDirectory) {
     '.DS_Store', 'Thumbs.db', '.log', '.tmp', '.cache',
     '*.min.js', '*.min.css', '*.map', '*.log', '*.tar', '*.gz',
     '*.zip', '*.pdf', '*.png', '*.jpg', '*.jpeg', '*.gif', '*.ico',
-    '*.svg', '*.woff', '*.woff2', '*.ttf', '*.eot', '*.bin'
+    '*.svg', '*.woff', '*.woff2', '*.ttf', '*.eot', '*.bin',
+    'README.md', 'license', 'LICENSE', 'changelog', 'CHANGELOG.md',
+    'dockerfile.dev', 'dockerfile.prod', 'docker-compose.dev',
+    'docker-compose.prod', 'Makefile', 'CMakeLists.txt',
+    'dockerfile.debug', 'docker-compose.debug',
+
   ];
 
   if (isDirectory) {
