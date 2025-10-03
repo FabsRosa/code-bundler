@@ -114,8 +114,9 @@ const NodeIcon = styled.div`
   width: 16px;
   height: 16px;
   color: ${props => {
-    if (props.isDirectory) return '#f59e0b';
-    return props.theme.textSecondary;
+    if (props.isDirectory && props.checked === 'partial') return '#00a3b9ff';
+    if (props.isDirectory) return '#00a3b9ff';
+    return '#74a0ffff';
   }};
   opacity: ${props => props.isBlocked ? 0.5 : 1};
 `;
@@ -134,27 +135,35 @@ const NodeName = styled.span`
 const LineCount = styled.span`
   font-size: 0.75rem;
   color: ${props => props.theme.text};
-  background: ${props => props.isFolder ? '#f59f0b42' : props.theme.background};
+  background: ${props => {
+    if (props.isFolder && props.checked === 'partial') return '#00a3b95e';
+    if (props.isFolder) return '#00a3b95e';
+    return props.theme.accent + '60';
+  }};
   padding: 0.125rem 0.375rem;
   border-radius: 12px;
   min-width: 2rem;
   text-align: center;
-  border: 1px solid ${props => props.theme.border};
+  border: 1px solid ${props => {
+    if (props.isFolder && props.checked === 'partial') return '#00a3b907';
+    if (props.isFolder) return '#00a3b9a1';
+    return props.theme.accent + '99';
+  }};
 `;
 
 const Checkbox = styled.div`
   width: 16px;
   height: 16px;
   border: 1px solid ${props => {
-    if (props.isFolder && props.checked === 'partial') return '#c07a00ff';
-    if (props.isFolder && props.checked) return '#c07a00ff';
+    if (props.isFolder && props.checked === 'partial') return '#00a3b9ce';
+    if (props.isFolder && props.checked) return '#00a3b9ce';
     return props.theme.border;
   }};
   border-radius: 3px;
   background: ${props => {
     if (props.disabled) return props.theme.border;
-    if (props.isFolder && props.checked === 'partial') return 'rgba(245, 158, 11, 0.3)';
-    if (props.isFolder && props.checked) return '#c07a00ff';
+    if (props.isFolder && props.checked === 'partial') return '#00a3b952';
+    if (props.isFolder && props.checked) return '#00a3b9d5';
     if (props.checked) return props.theme.accent;
     return 'transparent';
   }};
@@ -162,7 +171,7 @@ const Checkbox = styled.div`
   align-items: center;
   justify-content: center;
   cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
-  opacity: ${props => props.disabled ? 0.5 : 1};
+  opacity: ${props => props.disabled ? 0.4 : 1};
   transition: all 0.2s;
 
   &:hover {
@@ -458,6 +467,7 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
       const isSelected = selectedFile?.filePath === node.filePath;
       const isBlocked = isNodeBlocked(node);
       const isChecked = selectedFiles.has(node.filePath);
+      const iconSize = 16;
 
       // For folders, determine selection state
       const folderSelectionState = node.isDirectory ? getFolderSelectionState(node) : null;
@@ -476,6 +486,8 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
               <NodeIcon
                 isDirectory
                 isBlocked={isBlocked}
+                checked={folderSelectionState === 'all' ? true :
+                  folderSelectionState === 'partial' ? 'partial' : false}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleFolder(node.filePath);
@@ -489,12 +501,27 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
 
             <NodeIcon
               isDirectory={node.isDirectory}
+              checked={folderSelectionState === 'all' ? true :
+                folderSelectionState === 'partial' ? 'partial' : false}
               isBlocked={isBlocked}
             >
               {node.isDirectory ? (
-                isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+                // Use filled folder icon if selected, otherwise outlined
+                isExpanded
+                  ? (folderSelectionState === 'all'
+                    ? <FolderOpen size={iconSize} fill="#00a3b9ff" />
+                    : (folderSelectionState === 'partial'
+                      ? <FolderOpen size={iconSize} fill="#00a3b979" />
+                      : <FolderOpen size={iconSize} />))
+                  : (folderSelectionState === 'all'
+                    ? <Folder size={iconSize} fill="#00a3b9ff" />
+                    : (folderSelectionState === 'partial'
+                      ? <Folder size={iconSize} fill="#00a3b979" />
+                      : <Folder size={iconSize} />))
               ) : (
-                <File size={14} />
+                isChecked
+                  ? <File size={iconSize} fill={"#74a0ff70"} />
+                  : <File size={iconSize} />
               )}
             </NodeIcon>
 
@@ -514,7 +541,11 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
 
             {/* Line count for folders (only show when files are selected and not blocked) */}
             {node.isDirectory && showFolderLineCount && (
-              <LineCount isFolder>
+              <LineCount
+                isFolder
+                checked={folderSelectionState === 'all' ? true :
+                  folderSelectionState === 'partial' ? 'partial' : false}
+              >
                 {folderLineCount}
               </LineCount>
             )}
