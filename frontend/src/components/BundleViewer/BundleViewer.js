@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { Package, Copy, Download, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Package, Copy, Download, CheckCircle, AlertCircle, FileText, AlignLeft } from 'lucide-react';
 
 const ViewerContainer = styled.div`
   height: 100%;
@@ -31,13 +31,25 @@ const Title = styled.h3`
 `;
 
 const Stats = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
   color: ${props => props.theme.textSecondary};
   font-size: 0.875rem;
 `;
 
+const StatGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  `;
+
+const StatSize = styled.div`
+    display: flex;
+    align-items: center;
+    height: 100%;
+  `;
 const StatItem = styled.div`
   display: flex;
   align-items: center;
@@ -129,60 +141,6 @@ const CopySuccess = styled.div`
   font-weight: 500;
 `;
 
-const Warning = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  margin: 1rem;
-  margin-bottom: 0;
-  background: ${props => props.theme.surfaceElevated};
-  border: 1px solid ${props => props.theme.danger};
-  border-radius: 6px;
-  color: ${props => props.theme.danger};
-  font-size: 0.875rem;
-`;
-
-const Info = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  margin: 1rem;
-  background: ${props => props.theme.surfaceElevated};
-  border: 1px solid ${props => props.theme.accent};
-  border-radius: 6px;
-  color: ${props => props.theme.accent};
-  font-size: 0.875rem;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  margin: 1rem;
-`;
-
-const StatCard = styled.div`
-  background: ${props => props.theme.surfaceElevated};
-  border: 1px solid ${props => props.theme.border};
-  border-radius: 8px;
-  padding: 0.75rem;
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: ${props => props.theme.accent};
-  margin-bottom: 0.25rem;
-`;
-
-const StatLabel = styled.div`
-  font-size: 0.75rem;
-  color: ${props => props.theme.textSecondary};
-`;
-
 function BundleViewer({ bundle, loading, selectedFilesCount }) {
   const [copied, setCopied] = useState(false);
 
@@ -190,15 +148,38 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
     if (!bundle) return null;
 
     const lines = bundle.split('\n').length;
-    const files = (bundle.match(/##### FILE:/g) || []).length;
+    // Use selectedFilesCount if available, otherwise fallback to header count
+    const files = ((bundle.match(/##### FILE:/g) || []).length - 1);
     const sizeInBytes = new Blob([bundle]).size;
     const sizeInKB = Math.round(sizeInBytes / 1024);
     const sizeInMB = sizeInKB > 1024 ? (sizeInKB / 1024).toFixed(2) : null;
 
     return { lines, files, sizeInBytes, sizeInKB, sizeInMB };
-  }, [bundle]);
+  }, [bundle, selectedFilesCount]);
 
-  // ... (handleCopy, handleDownload functions remain the same)
+  const handleCopy = async () => {
+    if (!bundle) return;
+    try {
+      await navigator.clipboard.writeText(bundle);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      alert('Failed to copy bundle to clipboard');
+    }
+  };
+
+  const handleDownload = () => {
+    if (!bundle) return;
+    const blob = new Blob([bundle], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'project-bundle.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -246,29 +227,33 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
   return (
     <ViewerContainer>
       <ViewerHeader>
-        <Title>
-          <Package size={20} />
-          Project Bundle
-        </Title>
-
-        <Stats>
-          {bundleStats && (
-            <>
-              <StatItem>
-                <FileText size={14} />
-                <strong>{bundleStats.files}</strong> files
-              </StatItem>
-              <StatItem>
-                <strong>{bundleStats.lines}</strong> lines
-              </StatItem>
-              <StatItem>
-                <strong>
-                  {bundleStats.sizeInMB ? `${bundleStats.sizeInMB} MB` : `${bundleStats.sizeInKB} KB`}
-                </strong>
-              </StatItem>
-            </>
-          )}
-        </Stats>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <Title style={{ margin: 0 }}>
+            <Package size={20} />
+            Project Bundle
+          </Title>
+          <Stats>
+            {bundleStats && (
+              <>
+                <StatGroup>
+                  <StatItem>
+                    <FileText size={14} />
+                    <strong>{bundleStats.files}</strong> files
+                  </StatItem>
+                  <StatItem>
+                    <AlignLeft size={14} />
+                    <strong>{bundleStats.lines}</strong> lines
+                  </StatItem>
+                </StatGroup>
+                <StatSize>
+                  <strong>
+                    {bundleStats.sizeInMB ? `${bundleStats.sizeInMB} MB` : `${bundleStats.sizeInKB} KB`}
+                  </strong>
+                </StatSize>
+              </>
+            )}
+          </Stats>
+        </div>
 
         <Actions>
           {copied ? (
@@ -288,40 +273,6 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
           </Button>
         </Actions>
       </ViewerHeader>
-
-      {bundleStats && (
-        <>
-          <StatsGrid>
-            <StatCard>
-              <StatValue>{bundleStats.files}</StatValue>
-              <StatLabel>Files</StatLabel>
-            </StatCard>
-            <StatCard>
-              <StatValue>{bundleStats.lines}</StatValue>
-              <StatLabel>Lines</StatLabel>
-            </StatCard>
-            <StatCard>
-              <StatValue>
-                {bundleStats.sizeInMB ? `${bundleStats.sizeInMB} MB` : `${bundleStats.sizeInKB} KB`}
-              </StatValue>
-              <StatLabel>Size</StatLabel>
-            </StatCard>
-          </StatsGrid>
-
-          <Info>
-            <Package size={16} />
-            Bundle contains {bundleStats.files} files, {bundleStats.lines} lines,
-            {bundleStats.sizeInMB ? ` ${bundleStats.sizeInMB} MB` : ` ${bundleStats.sizeInKB} KB`}
-          </Info>
-        </>
-      )}
-
-      {bundleStats && bundleStats.sizeInKB > 180 && (
-        <Warning>
-          <AlertCircle size={16} />
-          Large bundle detected ({bundleStats.sizeInKB}KB). Some AI models may have token limits.
-        </Warning>
-      )}
 
       <Content>{bundle}</Content>
     </ViewerContainer>

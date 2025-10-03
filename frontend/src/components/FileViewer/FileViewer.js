@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-markup';
 import { X, File as FileIcon, Download, Copy } from 'lucide-react';
 
 const ViewerContainer = styled.div`
@@ -111,7 +123,7 @@ const CodeContent = styled.pre`
   padding: 1rem;
   margin: 0;
   font-family: 'Fira Code', monospace;
-  font-size: 0.875rem;
+  font-size: 0.85rem !important;
   line-height: 1.4;
   color: ${props => props.theme.text};
   background: ${props => props.theme.codeBackground};
@@ -119,6 +131,24 @@ const CodeContent = styled.pre`
   white-space: pre-wrap;
   word-break: break-all;
   tab-size: 2;
+
+  /* Override Prism background and font-size for all code blocks */
+  &,
+  &.language-none,
+  &.language-text,
+  &.language-javascript,
+  &.language-typescript,
+  &.language-python,
+  &.language-java,
+  &.language-markdown,
+  &.language-css,
+  &.language-json,
+  &.language-bash,
+  &.language-yaml,
+  &.language-html {
+    background: ${props => props.theme.codeBackground} !important;
+    font-size: 0.85rem !important;
+  }
 `;
 
 const LoadingState = styled.div`
@@ -165,6 +195,58 @@ const CopySuccess = styled.div`
     }
   }
 `;
+
+// Helper function to detect language for basic syntax awareness
+const detectLanguage = (filename) => {
+  const extension = filename.split('.').pop().toLowerCase();
+
+  const languageMap = {
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'py': 'python',
+    'java': 'java',
+    'html': 'html',
+    'css': 'css',
+    'scss': 'scss',
+    'less': 'less',
+    'json': 'json',
+    'xml': 'xml',
+    'md': 'markdown',
+    'php': 'php',
+    'rb': 'ruby',
+    'go': 'go',
+    'rs': 'rust',
+    'c': 'c',
+    'cpp': 'cpp',
+    'h': 'c',
+    'hpp': 'cpp',
+    'sql': 'sql',
+    'sh': 'bash',
+    'bash': 'bash',
+    'zsh': 'bash',
+    'yml': 'yaml',
+    'yaml': 'yaml',
+  };
+
+  return languageMap[extension] || 'text';
+};
+
+// Prism.js language mapping
+const prismLanguageMap = {
+  javascript: 'javascript',
+  typescript: 'typescript',
+  python: 'python',
+  java: 'java',
+  markdown: 'markdown',
+  css: 'css',
+  json: 'json',
+  bash: 'bash',
+  yaml: 'yaml',
+  html: 'html',
+  text: 'none',
+};
 
 function FileViewer({ file, onClose }) {
   const [content, setContent] = useState('');
@@ -233,6 +315,17 @@ function FileViewer({ file, onClose }) {
   const lines = content.split('\n');
   const lineNumbers = Array.from({ length: lines.length }, (_, i) => i + 1);
 
+  // Detect language for syntax highlighting
+  const language = file ? detectLanguage(file.name) : 'text';
+  const prismLang = prismLanguageMap[language] || 'none';
+  let highlightedContent;
+  if (prismLang === 'none' || !Prism.languages[prismLang]) {
+    // Render as plain text if grammar is not available
+    highlightedContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  } else {
+    highlightedContent = Prism.highlight(content, Prism.languages[prismLang], prismLang);
+  }
+
   if (!file) return null;
 
   return (
@@ -274,7 +367,10 @@ function FileViewer({ file, onClose }) {
                 <LineNumber key={number}>{number}</LineNumber>
               ))}
             </LineNumbers>
-            <CodeContent>{content}</CodeContent>
+            <CodeContent
+              className={`language-${prismLang}`}
+              dangerouslySetInnerHTML={{ __html: highlightedContent }}
+            />
           </>
         )}
       </ContentContainer>

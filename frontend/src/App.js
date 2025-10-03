@@ -246,6 +246,10 @@ function App() {
   };
 
   const handleFileSelect = useCallback((file) => {
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
     if (file && !file.isDirectory) {
       setSelectedFile(file);
     }
@@ -346,16 +350,18 @@ function App() {
 }
 
 // Helper function to count total files
-function countTotalFiles(nodes) {
+// Helper function to count total files in unblocked folders
+function countTotalFiles(nodes, parentBlocked = false) {
   if (!nodes || !Array.isArray(nodes)) return 0;
 
   let count = 0;
   nodes.forEach(node => {
-    if (!node.isDirectory) {
+    const isBlocked = parentBlocked || node.isExcluded;
+    if (!node.isDirectory && !isBlocked) {
       count++;
     }
     if (node.children && Array.isArray(node.children)) {
-      count += countTotalFiles(node.children);
+      count += countTotalFiles(node.children, isBlocked);
     }
   });
   return count;
@@ -441,27 +447,29 @@ function buildFileTree(files, rootPath) {
     }
   });
 
-  // Second pass: inherit exclusion from parents
-  const applyParentExclusions = (nodes, parentExcluded = false) => {
-    return Object.values(nodes).map(node => {
+  // Second pass: inherit exclusion from parents and sort children
+  const applyParentExclusionsAndSort = (nodes, parentExcluded = false) => {
+    // Convert to array and sort folders first, files last, both alphabetically
+    const arr = Object.values(nodes).map(node => {
       const isNodeExcluded = parentExcluded || node.isExcluded;
-
       return {
         ...node,
         isExcluded: isNodeExcluded,
-        children: node.children ? applyParentExclusions(node.children, isNodeExcluded) : []
+        children: node.children ? applyParentExclusionsAndSort(node.children, isNodeExcluded) : []
       };
     });
+    // Sort: folders first, files last, both alphabetically
+    arr.sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    return arr;
   };
 
-  const treeWithExclusions = applyParentExclusions(root);
+  const treeWithExclusions = applyParentExclusionsAndSort(root);
 
-  // Sort the tree
-  return treeWithExclusions.sort((a, b) => {
-    if (a.isDirectory && !b.isDirectory) return -1;
-    if (!a.isDirectory && b.isDirectory) return 1;
-    return a.name.localeCompare(b.name);
-  });
+  return treeWithExclusions;
 }
 
 // Count lines in a file (estimate from file size)
@@ -481,7 +489,6 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
   bundleParts.push(`This file contains multiple project files separated by file headers.`);
   bundleParts.push(`Each file is prefixed with "##### FILE: [relative_path] #####"`);
   bundleParts.push(`Files are separated by "##### END FILE #####"`);
-  bundleParts.push(`Total files: ${selectedFilePaths.length}`);
   bundleParts.push(`==============================`);
   bundleParts.push(``);
 

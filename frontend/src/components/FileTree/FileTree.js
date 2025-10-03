@@ -146,6 +146,7 @@ const NodeItem = styled.div`
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  min-height: 2rem;
 
   &:hover {
     background: ${props => props.theme.surfaceElevated};
@@ -265,6 +266,14 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [forcedPaths, setForcedPaths] = useState(new Set());
+
+  // Expand root folder(s) by default when tree changes
+  React.useEffect(() => {
+    if (tree && Array.isArray(tree) && tree.length > 0) {
+      const rootFolders = tree.filter(node => node.isDirectory).map(node => node.filePath);
+      setExpandedFolders(new Set(rootFolders));
+    }
+  }, [tree]);
 
   // Helper to check if a node is effectively blocked
   const isNodeBlocked = (node) => {
@@ -501,8 +510,7 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     const unblockedFilePaths = getUnblockedFilePathsInFolder(folderNode);
     const currentState = getFolderSelectionState(folderNode);
 
-    // If folder is fully selected, deselect all; otherwise select all
-    const shouldSelect = currentState !== 'all';
+    const shouldSelect = currentState === 'none';
 
     unblockedFilePaths.forEach(filePath => {
       if (shouldSelect && !selectedFiles.has(filePath)) {
@@ -517,7 +525,12 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     if (node.isDirectory) {
       toggleFolder(node.filePath);
     } else {
-      onFileSelect(node);
+      // Deselect if already selected
+      if (selectedFile && selectedFile.filePath === node.filePath) {
+        onFileSelect(null);
+      } else {
+        onFileSelect(node);
+      }
     }
   };
 
@@ -529,9 +542,15 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     setSearchTerm(e.target.value);
   };
 
-  // Collapse all folders
+  // Collapse all folders except the root folder
   const collapseAllFolders = () => {
-    setExpandedFolders(new Set());
+    if (!tree || !Array.isArray(tree) || tree.length === 0) {
+      setExpandedFolders(new Set());
+      return;
+    }
+    // Only keep root folder(s) expanded
+    const rootFolders = tree.filter(node => node.isDirectory).map(node => node.filePath);
+    setExpandedFolders(new Set(rootFolders));
   };
 
   const renderTree = (nodes, depth = 0) => {
