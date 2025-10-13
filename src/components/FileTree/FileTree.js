@@ -688,7 +688,7 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
         <TreeHeader>
           <HeaderSize>
             <HeaderTop>
-              <Title>
+              <Title style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Package size={16} />
                 Project Files
               </Title>
@@ -726,9 +726,9 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
       <TreeHeader>
         <HeaderSize>
           <HeaderTop>
-            <Title>
+            <Title style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Package size={16} />
-              {' '}Project Files
+              Project Files
             </Title>
             <HeaderActions>
               {/* Selected Lines Counter */}

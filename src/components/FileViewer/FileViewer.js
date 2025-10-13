@@ -102,23 +102,6 @@ const ContentContainer = styled.div`
   position: relative;
 `;
 
-const LineNumbers = styled.div`
-  background: ${props => props.theme.codeBackground};
-  border-right: 1px solid ${props => props.theme.codeBorder};
-  padding: 1rem 0.5rem;
-  font-family: 'Fira Code', monospace;
-  font-size: 0.75rem;
-  color: ${props => props.theme.textSecondary};
-  text-align: right;
-  user-select: none;
-  overflow-y: auto;
-  min-width: 3rem;
-`;
-
-const LineNumber = styled.div`
-  line-height: 1.4;
-`;
-
 const CodeContent = styled.pre`
   flex: 1;
   padding: 1rem;
@@ -313,9 +296,6 @@ function FileViewer({ file, onClose }) {
     URL.revokeObjectURL(url);
   };
 
-  const lines = content.split('\n');
-  const lineNumbers = Array.from({ length: lines.length }, (_, i) => i + 1);
-
   // Detect language for syntax highlighting
   const language = file ? detectLanguage(file.name) : 'text';
   const prismLang = prismLanguageMap[language] || 'none';
@@ -362,17 +342,10 @@ function FileViewer({ file, onClose }) {
             <Button onClick={loadFileContent}>Retry</Button>
           </ErrorState>
         ) : (
-          <>
-            <LineNumbers>
-              {lineNumbers.map(number => (
-                <LineNumber key={number}>{number}</LineNumber>
-              ))}
-            </LineNumbers>
-            <CodeContent
-              className={`language-${prismLang}`}
-              dangerouslySetInnerHTML={{ __html: highlightedContent }}
-            />
-          </>
+          <CodeContent
+            className={`language-${prismLang}`}
+            dangerouslySetInnerHTML={{ __html: highlightedContent }}
+          />
         )}
       </ContentContainer>
 

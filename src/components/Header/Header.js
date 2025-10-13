@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-import { FolderOpen, Package, Download } from 'lucide-react';
+import { FolderOpen, Package, FileText, BarChart2, Download } from 'lucide-react';
 
 const HeaderContainer = styled.header`
   background: ${props => props.theme.surface};
@@ -33,18 +33,53 @@ const Logo = styled.div`
   color: ${props => props.theme.accent};
 `;
 
+const ProjectInfo = styled.div`
+  padding-left: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: ${props => props.theme.textSecondary};
+  font-weight: 500;
+`;
+
 const Stats = styled.div`
   display: flex;
   align-items: center;
-  gap: 1rem;
-  color: ${props => props.theme.textSecondary};
-  font-size: 0.875rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  
+  @media (max-width: 768px) {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
 `;
 
 const StatItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
+  color: ${props => props.theme.textSecondary};
+  font-size: 0.875rem;
+  white-space: nowrap;
+  height: 28px;
+  
+  &:not(:last-child) {
+    margin-left: 2.3rem;
+    padding-right: 0.75rem;
+    border-right: 1px solid ${props => props.theme.border};
+  }
+  
+  strong {
+    color: ${props => props.theme.text};
+  }
+  
+  @media (max-width: 768px) {
+    &:not(:last-child) {
+      margin-right: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
 `;
 
 const Actions = styled.div`
@@ -81,14 +116,6 @@ const FileInput = styled.input`
   display: none;
 `;
 
-const ProjectInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: ${props => props.theme.textSecondary};
-  font-size: 0.875rem;
-`;
-
 function Header({
   onProjectSelect,
   selectedFilesCount,
@@ -103,7 +130,7 @@ function Header({
   const fileInputRef = useRef(null);
 
   const handleSelectProject = () => {
-    fileInputRef.current?.click();
+    fileInputRef.current.click();
   };
 
   const handleFileSelection = async (event) => {
@@ -159,14 +186,15 @@ function Header({
 
         {(selectedFilesCount !== undefined && totalFilesCount !== undefined && totalFilesCount > 0) && (
           <Stats>
-            |
             <StatItem>
+              <FileText size={14} />
               <strong>{selectedFilesCount}</strong> of <strong>{totalFilesCount}</strong> files selected
             </StatItem>
-            |
+
             {(selectedLinesCount !== undefined && totalLinesCount !== undefined) && (
               <StatItem>
-                <strong>{selectedLinesCount.toLocaleString()}</strong> of <strong>{totalLinesCount.toLocaleString()}</strong> lines selected
+                <BarChart2 size={14} />
+                <strong>{selectedLinesCount.toLocaleString()}</strong> of <strong>{totalLinesCount.toLocaleString()}</strong> lines
               </StatItem>
             )}
           </Stats>
@@ -174,26 +202,19 @@ function Header({
       </LeftSection>
 
       <RightSection>
-        <Actions>
-          <Button onClick={handleSelectProject}>
-            <FolderOpen size={16} />
-            Select Project Folder
-          </Button>
+        <Button onClick={handleSelectProject}>
+          <FolderOpen size={16} />
+          Select Project Folder
+        </Button>
 
-          <Button
-            primary
-            onClick={onGenerateBundle}
-            disabled={!selectedFilesCount || loading}
-          >
-            <Package size={16} />
-            {loading ? 'Generating...' : 'Generate Bundle'}
-          </Button>
-
-          <Button onClick={handleDownloadBundle} disabled={!bundle}>
-            <Download size={16} />
-            Download
-          </Button>
-        </Actions>
+        <Button
+          primary
+          onClick={onGenerateBundle}
+          disabled={!selectedFilesCount || loading}
+        >
+          <Package size={16} />
+          {loading ? 'Generating...' : 'Generate Bundle'}
+        </Button>
       </RightSection>
 
       <FileInput
