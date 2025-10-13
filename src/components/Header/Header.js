@@ -93,6 +93,8 @@ function Header({
   onProjectSelect,
   selectedFilesCount,
   totalFilesCount,
+  selectedLinesCount,
+  totalLinesCount,
   onGenerateBundle,
   loading,
   bundle,
@@ -157,9 +159,16 @@ function Header({
 
         {(selectedFilesCount !== undefined && totalFilesCount !== undefined && totalFilesCount > 0) && (
           <Stats>
+            |
             <StatItem>
               <strong>{selectedFilesCount}</strong> of <strong>{totalFilesCount}</strong> files selected
             </StatItem>
+            |
+            {(selectedLinesCount !== undefined && totalLinesCount !== undefined) && (
+              <StatItem>
+                <strong>{selectedLinesCount.toLocaleString()}</strong> of <strong>{totalLinesCount.toLocaleString()}</strong> lines selected
+              </StatItem>
+            )}
           </Stats>
         )}
       </LeftSection>

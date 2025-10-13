@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { FolderOpen, Sun, Moon } from 'lucide-react';
 
@@ -279,6 +279,44 @@ function App() {
   // Safe count for header
   const totalFilesCount = project && project.tree ? countTotalFiles(project.tree) : 0;
 
+  const { totalLinesCount, selectedLinesCount } = useMemo(() => {
+    if (!project || !project.tree) {
+      return { totalLinesCount: 0, selectedLinesCount: 0 };
+    }
+
+    let totalLines = 0;
+    let selectedLines = 0;
+    const fileMap = new Map();
+
+    // Recursive function to traverse the tree and collect data
+    const traverse = (nodes, parentBlocked = false) => {
+      if (!nodes || !Array.isArray(nodes)) return;
+      nodes.forEach(node => {
+        const isBlocked = parentBlocked || node.isExcluded;
+        if (!node.isDirectory) {
+          // Map file path to its line count for quick lookup
+          fileMap.set(node.filePath, node.lineCount || 0);
+          if (!isBlocked) {
+            totalLines += node.lineCount || 0;
+          }
+        }
+        if (node.children) {
+          traverse(node.children, isBlocked);
+        }
+      });
+    };
+
+    traverse(project.tree);
+
+    // Calculate selected lines from the map
+    selectedFiles.forEach(filePath => {
+      selectedLines += fileMap.get(filePath) || 0;
+    });
+
+    return { totalLinesCount: totalLines, selectedLinesCount: selectedLines };
+  }, [project, selectedFiles]);
+
+
   return (
     <ThemeProvider theme={currentTheme}>
       <GlobalStyle />
@@ -287,6 +325,8 @@ function App() {
           onProjectSelect={handleProjectSelect}
           selectedFilesCount={selectedFiles.size}
           totalFilesCount={totalFilesCount}
+          selectedLinesCount={selectedLinesCount}
+          totalLinesCount={totalLinesCount}
           onGenerateBundle={generateBundle}
           loading={loading}
           bundle={bundle}
@@ -488,7 +528,7 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
   bundleParts.push(`==============================`);
   bundleParts.push(`This file contains multiple project files separated by file headers.`);
   bundleParts.push(`Each file is prefixed with "##### FILE: [relative_path] #####"`);
-  bundleParts.push(`Files are separated by "##### END FILE #####"`);
+  bundleParts.push(`Files are separated by "##### END FILE #####`);
   bundleParts.push(`==============================`);
   bundleParts.push(``);
 
@@ -498,8 +538,12 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
     if (!file) continue;
 
     try {
-      const content = await readFileContent(file);
+      let content = await readFileContent(file);
       const relativePath = file.webkitRelativePath || file.name;
+
+      // Remove file path comment at the beginning if it exists
+      content = removeFilePathComment(content, relativePath);
+
       const lineCount = content.split('\n').length;
 
       totalFiles++;
@@ -518,6 +562,66 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
   bundleParts[5] = `Total files: ${totalFiles}, Total lines: ${totalLines}`;
 
   return bundleParts.join('\n');
+}
+
+// Helper function to remove file path comments at the beginning of files
+function removeFilePathComment(content, filePath) {
+  if (!content || !filePath) return content;
+
+  // Extract lines and check the first real line
+  const lines = content.split('\n');
+  if (!lines.length) return content;
+
+  const firstLine = lines[0].trim();
+
+  // Get path variations to check
+  const pathVariations = [];
+
+  // Original path
+  pathVariations.push(filePath);
+
+  // Path without leading slash
+  if (filePath.startsWith('/')) {
+    pathVariations.push(filePath.substring(1));
+  }
+
+  // Path without root folder (everything after the first slash)
+  const pathParts = filePath.split('/');
+  if (pathParts.length > 1) {
+    const pathWithoutRoot = pathParts.slice(1).join('/');
+    pathVariations.push(pathWithoutRoot);
+  }
+
+  // Path with only filename (last part)
+  if (pathParts.length > 0) {
+    pathVariations.push(pathParts[pathParts.length - 1]);
+  }
+
+  // Generate all possible comment patterns
+  const possibleComments = [];
+
+  pathVariations.forEach(path => {
+    // JavaScript/CSS style comments
+    possibleComments.push(`// ${path}`);
+    possibleComments.push(`//${path}`);
+
+    // Shell/Python/Ruby style comments
+    possibleComments.push(`# ${path}`);
+    possibleComments.push(`#${path}`);
+
+    // HTML style comments
+    possibleComments.push(`<!-- ${path} -->`);
+    possibleComments.push(`<!--${path}-->`);
+  });
+
+  // Check if the first line matches any comment pattern
+  if (possibleComments.some(comment => firstLine === comment)) {
+    // Remove the first line
+    return lines.slice(1).join('\n');
+  }
+
+  // No matching comment found, return original content
+  return content;
 }
 
 // Read file content

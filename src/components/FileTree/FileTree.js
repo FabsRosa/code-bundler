@@ -603,12 +603,12 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
                 // Use filled folder icon if selected, otherwise outlined
                 isExpanded
                   ? (folderSelectionState === 'all'
-                    ? <FolderOpen size={iconSize} fill="#00a3b9ff" />
+                    ? <FolderOpen size={iconSize} fill="#00a3b9e0" />
                     : (folderSelectionState === 'partial'
                       ? <FolderOpen size={iconSize} fill="#00a3b979" />
                       : <FolderOpen size={iconSize} />))
                   : (folderSelectionState === 'all'
-                    ? <Folder size={iconSize} fill="#00a3b9ff" />
+                    ? <Folder size={iconSize} fill="#00a3b9f3" />
                     : (folderSelectionState === 'partial'
                       ? <Folder size={iconSize} fill="#00a3b979" />
                       : <Folder size={iconSize} />))
