@@ -7,6 +7,7 @@ import ResizablePanels from './components/ResizablePanels/ResizablePanels';
 import FileTree from './components/FileTree/FileTree';
 import FileViewer from './components/FileViewer/FileViewer';
 import BundleViewer from './components/BundleViewer/BundleViewer';
+import LoadingOverlay from './components/LoadingOverlay/LoadingOverlay';
 
 const lightTheme = {
   background: '#ffffff',
@@ -177,46 +178,56 @@ function App() {
   const currentTheme = theme === 'dark' ? darkTheme : lightTheme;
 
   const handleProjectSelect = useCallback(async (projectData) => {
-    if (!projectData || !projectData.files) {
-      console.error('Invalid project data');
-      return;
-    }
+    setLoading(true);
 
-    // Build file tree from the selected files
-    const fileTree = buildFileTree(projectData.files, projectData.rootPath);
+    try {
+      if (!projectData || !projectData.files) {
+        console.error('Invalid project data');
+        return;
+      }
 
-    // Auto-select only non-excluded files
-    const selectNonExcludedFiles = (nodes) => {
-      const selected = new Set();
+      // Build file tree from the selected files
+      const fileTree = buildFileTree(projectData.files, projectData.rootPath);
 
-      if (!nodes || !Array.isArray(nodes)) return selected;
+      // Auto-select only non-excluded files
+      const selectNonExcludedFiles = (nodes) => {
+        const selected = new Set();
 
-      nodes.forEach(node => {
-        // Only select files that are NOT excluded
-        if (!node.isExcluded && !node.isDirectory && node.filePath) {
-          selected.add(node.filePath);
-        }
-        // Recursively process children
-        if (node.children && Array.isArray(node.children)) {
-          const childSelections = selectNonExcludedFiles(node.children);
-          childSelections.forEach(path => selected.add(path));
-        }
+        if (!nodes || !Array.isArray(nodes)) return selected;
+
+        nodes.forEach(node => {
+          // Only select files that are NOT excluded
+          if (!node.isExcluded && !node.isDirectory && node.filePath) {
+            selected.add(node.filePath);
+          }
+          // Recursively process children
+          if (node.children && Array.isArray(node.children)) {
+            const childSelections = selectNonExcludedFiles(node.children);
+            childSelections.forEach(path => selected.add(path));
+          }
+        });
+        return selected;
+      };
+
+      const initialSelected = selectNonExcludedFiles(fileTree);
+      setSelectedFiles(initialSelected);
+
+      // Update project with the built tree
+      setProject({
+        ...projectData,
+        tree: fileTree
       });
-      return selected;
-    };
 
-    const initialSelected = selectNonExcludedFiles(fileTree);
-    setSelectedFiles(initialSelected);
+      // Clear previous states
+      setSelectedFile(null);
+      setBundle('');
 
-    // Update project with the built tree
-    setProject({
-      ...projectData,
-      tree: fileTree
-    });
-
-    // Clear previous states
-    setSelectedFile(null);
-    setBundle('');
+    } catch (error) {
+      console.error("Failed to process project:", error);
+      alert(`Error loading project: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const generateBundle = useCallback(async () => {
@@ -320,6 +331,9 @@ function App() {
   return (
     <ThemeProvider theme={currentTheme}>
       <GlobalStyle />
+      {loading && (
+        <LoadingOverlay message="Analyzing..." />
+      )}
       <AppContainer>
         <Header
           onProjectSelect={handleProjectSelect}
