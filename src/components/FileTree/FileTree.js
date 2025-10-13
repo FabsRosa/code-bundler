@@ -12,9 +12,13 @@ const TreeContainer = styled.div`
 `;
 
 const TreeHeader = styled.div`
-  padding: 1rem;
+  padding: 0.6rem 1.5rem;
   border-bottom: 1px solid ${props => props.theme.border};
   background: ${props => props.theme.surfaceElevated};
+`;
+
+const HeaderSize = styled.div`
+  min-height: 73.5px;
 `;
 
 const HeaderTop = styled.div`
@@ -27,7 +31,7 @@ const HeaderTop = styled.div`
 const HeaderBottom = styled.div`
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0rem;
 `;
 
 const HeaderActions = styled.div`
@@ -682,11 +686,66 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
     return (
       <TreeContainer>
         <TreeHeader>
+          <HeaderSize>
+            <HeaderTop>
+              <Title>
+                <Package size={16} />
+                Project Files
+              </Title>
+            </HeaderTop>
+            <HeaderBottom>
+              <SearchContainer>
+                <SearchInput
+                  type="text"
+                  placeholder="Search files..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                />
+                {searchTerm ? (
+                  <ClearSearchButton onClick={clearSearch}>
+                    <X size={14} />
+                  </ClearSearchButton>
+                ) : (
+                  <SearchIcon>
+                    <Search size={14} />
+                  </SearchIcon>
+                )}
+              </SearchContainer>
+            </HeaderBottom>
+          </HeaderSize>
+        </TreeHeader>
+        <TreeContent>
+          <EmptyState>No files available</EmptyState>
+        </TreeContent>
+      </TreeContainer>
+    );
+  }
+
+  return (
+    <TreeContainer>
+      <TreeHeader>
+        <HeaderSize>
           <HeaderTop>
             <Title>
               <Package size={16} />
-              Project Files
+              {' '}Project Files
             </Title>
+            <HeaderActions>
+              {/* Selected Lines Counter */}
+              {selectedFiles.size > 0 && (
+                <SelectedLinesCounter>
+                  <Package size={12} />
+                  {totalSelectedLines} lines selected
+                </SelectedLinesCounter>
+              )}
+              {/* Collapse All Button */}
+              <ActionButton
+                onClick={collapseAllFolders}
+                title="Collapse all folders"
+              >
+                <Minus size={14} />
+              </ActionButton>
+            </HeaderActions>
           </HeaderTop>
           <HeaderBottom>
             <SearchContainer>
@@ -706,64 +765,13 @@ function FileTree({ tree, selectedFiles, onFileToggle, onFileSelect, selectedFil
                 </SearchIcon>
               )}
             </SearchContainer>
+            {searchTerm && (
+              <SearchStats>
+                {matchCount > 0 ? `${matchCount} files found` : 'No files found'}
+              </SearchStats>
+            )}
           </HeaderBottom>
-        </TreeHeader>
-        <TreeContent>
-          <EmptyState>No files available</EmptyState>
-        </TreeContent>
-      </TreeContainer>
-    );
-  }
-
-  return (
-    <TreeContainer>
-      <TreeHeader>
-        <HeaderTop>
-          <Title>
-            <Package size={16} />
-            Project Files
-          </Title>
-          <HeaderActions>
-            {/* Selected Lines Counter */}
-            {selectedFiles.size > 0 && (
-              <SelectedLinesCounter>
-                <Package size={12} />
-                {totalSelectedLines} lines selected
-              </SelectedLinesCounter>
-            )}
-            {/* Collapse All Button */}
-            <ActionButton
-              onClick={collapseAllFolders}
-              title="Collapse all folders"
-            >
-              <Minus size={14} />
-            </ActionButton>
-          </HeaderActions>
-        </HeaderTop>
-        <HeaderBottom>
-          <SearchContainer>
-            <SearchInput
-              type="text"
-              placeholder="Search files..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-            {searchTerm ? (
-              <ClearSearchButton onClick={clearSearch}>
-                <X size={14} />
-              </ClearSearchButton>
-            ) : (
-              <SearchIcon>
-                <Search size={14} />
-              </SearchIcon>
-            )}
-          </SearchContainer>
-          {searchTerm && (
-            <SearchStats>
-              {matchCount > 0 ? `${matchCount} files found` : 'No files found'}
-            </SearchStats>
-          )}
-        </HeaderBottom>
+        </HeaderSize>
       </TreeHeader>
 
       <TreeContent>

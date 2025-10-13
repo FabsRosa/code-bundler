@@ -31,6 +31,7 @@ const ViewerHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  min-height: 93.5px;
 `;
 
 const FileInfo = styled.div`

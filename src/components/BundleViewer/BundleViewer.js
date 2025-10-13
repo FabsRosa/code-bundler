@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { Package, Copy, Download, CheckCircle, AlertCircle, FileText, AlignLeft } from 'lucide-react';
+import { Package, Copy, Download, CheckCircle, AlertCircle, FileText, AlignLeft, BarChart2, HardDrive } from 'lucide-react';
 
 const ViewerContainer = styled.div`
   height: 100%;
@@ -11,13 +11,26 @@ const ViewerContainer = styled.div`
 `;
 
 const ViewerHeader = styled.div`
-  padding: 1rem;
+  padding: 0.5rem 1.5rem;
   border-bottom: 1px solid ${props => props.theme.border};
   background: ${props => props.theme.surfaceElevated};
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  min-height: 70px;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+`;
+
+const HeaderGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 `;
 
 const Title = styled.h3`
@@ -30,60 +43,89 @@ const Title = styled.h3`
   gap: 0.5rem;
 `;
 
-const Stats = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
-  color: ${props => props.theme.textSecondary};
-  font-size: 0.875rem;
+const StatsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding-right: 1.5rem;
 `;
 
-const StatGroup = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  `;
-
-const StatSize = styled.div`
-    display: flex;
-    align-items: center;
-    height: 100%;
-  `;
 const StatItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
+  height: 100%;
+  color: ${props => props.theme.textSecondary};
+  font-size: 0.875rem;
+  white-space: nowrap;
+  
+  &:not(:last-child) {
+    margin-right: 1rem;
+    padding-right: 1rem;
+    border-right: 1px solid ${props => props.theme.border};
+  }
 `;
 
 const Actions = styled.div`
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.5rem;
+  min-width: 120px; /* Ensure consistent button width */
+  
+  @media (min-width: 769px) {
+    align-self: center;
+  }
 `;
 
 const Button = styled.button`
-  background: ${props => props.primary ? props.theme.accent : 'transparent'};
-  color: ${props => props.primary ? 'white' : props.theme.text};
-  border: ${props => props.primary ? 'none' : `1px solid ${props.theme.border}`};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  width: 100%;
   transition: all 0.2s;
-
-  &:hover:not(:disabled) {
-    background: ${props => props.primary ? props.theme.accentHover : props.theme.surfaceElevated};
-  }
+  
+  ${props => props.primary ? `
+    background: ${props.theme.accent};
+    color: white;
+    border: 1px solid ${props.theme.accent};
+    
+    &:hover {
+      background: ${props.theme.accentHover};
+      border-color: ${props.theme.accentHover};
+    }
+  ` : `
+    background: transparent;
+    color: ${props.theme.text};
+    border: 1px solid ${props.theme.border};
+    
+    &:hover {
+      border-color: ${props.theme.accent};
+      color: ${props.theme.accent};
+    }
+  `}
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
   }
+`;
+
+const CopySuccess = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: ${props => props.theme.success};
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: 100%;
+  padding: 0.5rem;
 `;
 
 const Content = styled.pre`
@@ -130,15 +172,6 @@ const EmptyStateIcon = styled.div`
 const EmptyStateText = styled.p`
   max-width: 300px;
   line-height: 1.5;
-`;
-
-const CopySuccess = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: ${props => props.theme.success};
-  font-size: 0.875rem;
-  font-weight: 500;
 `;
 
 function BundleViewer({ bundle, loading, selectedFilesCount }) {
@@ -224,36 +257,38 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
     );
   }
 
+  // Calculate bundle stats
+  const fileCount = bundle ? (bundle.match(/##### FILE:/g) || []).length : 0;
+  const lineCount = bundle ? bundle.split('\n').length : 0;
+  const sizeInKB = bundle ? Math.ceil(bundle.length / 1024) : 0;
+
   return (
     <ViewerContainer>
       <ViewerHeader>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <Title style={{ margin: 0 }}>
+        <HeaderGroup>
+          <Title>
             <Package size={20} />
             Project Bundle
           </Title>
-          <Stats>
-            {bundleStats && (
-              <>
-                <StatGroup>
-                  <StatItem>
-                    <FileText size={14} />
-                    <strong>{bundleStats.files}</strong> files
-                  </StatItem>
-                  <StatItem>
-                    <AlignLeft size={14} />
-                    <strong>{bundleStats.lines}</strong> lines
-                  </StatItem>
-                </StatGroup>
-                <StatSize>
-                  <strong>
-                    {bundleStats.sizeInMB ? `${bundleStats.sizeInMB} MB` : `${bundleStats.sizeInKB} KB`}
-                  </strong>
-                </StatSize>
-              </>
-            )}
-          </Stats>
-        </div>
+
+          {bundle && (
+            <StatsContainer>
+              <StatItem>
+                <FileText size={14} />
+                {fileCount} file{fileCount !== 1 ? 's' : ''}
+              </StatItem>
+
+              <StatItem>
+                <BarChart2 size={14} />
+                {lineCount.toLocaleString()} line{lineCount !== 1 ? 's' : ''}
+              </StatItem>
+
+              <StatItem>
+                {sizeInKB} KB
+              </StatItem>
+            </StatsContainer>
+          )}
+        </HeaderGroup>
 
         <Actions>
           {copied ? (
