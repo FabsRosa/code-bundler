@@ -542,7 +542,7 @@ async function generateBundleContent(files, selectedFilePaths, rootPath) {
   bundleParts.push(`==============================`);
   bundleParts.push(`This file contains multiple project files separated by file headers.`);
   bundleParts.push(`Each file is prefixed with "##### FILE: [relative_path] #####"`);
-  bundleParts.push(`Files are separated by "##### END FILE #####`);
+  bundleParts.push(`Files are separated by "##### END FILE #####"`);
   bundleParts.push(`==============================`);
   bundleParts.push(``);
 
