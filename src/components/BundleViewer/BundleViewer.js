@@ -41,6 +41,7 @@ const Title = styled.h3`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 77px;
 `;
 
 const StatsContainer = styled.div`
