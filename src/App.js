@@ -22,6 +22,8 @@ const lightTheme = {
   success: '#10b981',
   codeBackground: '#f8f9fa',
   codeBorder: '#e1e5e9',
+  mode: 'light',
+  isDark: false,
 };
 
 const darkTheme = {
@@ -37,6 +39,8 @@ const darkTheme = {
   success: '#34d399',
   codeBackground: '#1a1b2f',
   codeBorder: '#2d2f45',
+  mode: 'dark',
+  isDark: true,
 };
 
 const GlobalStyle = createGlobalStyle`

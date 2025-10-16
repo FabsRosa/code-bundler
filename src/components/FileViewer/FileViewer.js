@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import 'prismjs/components/prism-javascript';
@@ -133,6 +133,146 @@ const CodeContent = styled.pre`
     background: ${props => props.theme.codeBackground} !important;
     font-size: 0.85rem !important;
   }
+
+  &[data-theme='dark'] {
+    color: #f8f8f2;
+
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+      color: #999999;
+    }
+
+    .token.punctuation {
+      color: #f8f8f2;
+    }
+
+    .token.property,
+    .token.tag,
+    .token.constant,
+    .token.symbol,
+    .token.deleted {
+      color: #e2777a;
+    }
+
+    .token.boolean,
+    .token.number {
+      color: #648dffff;
+    }
+
+    .token.selector,
+    .token.attr-name,
+    .token.string,
+    .token.char,
+    .token.builtin,
+    .token.inserted {
+      color: #7ec699;
+    }
+
+    .token.operator,
+    .token.entity,
+    .token.url,
+    .language-css .token.string,
+    .style .token.string,
+    .token.variable {
+      color: #67cdcc;
+    }
+
+    .token.atrule,
+    .token.attr-value,
+    .token.function,
+    .token.class-name {
+      color: #e6db74;
+    }
+
+    .token.keyword {
+      color: #cc99cd;
+    }
+
+    .token.regex,
+    .token.important {
+      color: #f8c555;
+    }
+
+    .token.bold {
+      font-weight: 600;
+    }
+
+    .token.italic {
+      font-style: italic;
+    }
+  }
+
+  &[data-theme='light'] {
+    color: #1f2937;
+
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+      color: #707070ff;
+    }
+
+    .token.punctuation {
+      color: #374151;
+    }
+
+    .token.property,
+    .token.tag,
+    .token.constant,
+    .token.symbol,
+    .token.deleted {
+      color: #b13200ff;
+    }
+
+    .token.boolean,
+    .token.number {
+      color: #2563eb;
+    }
+
+    .token.selector,
+    .token.attr-name,
+    .token.string,
+    .token.char,
+    .token.builtin,
+    .token.inserted {
+      color: #047857;
+    }
+
+    .token.operator,
+    .token.entity,
+    .token.url,
+    .language-css .token.string,
+    .style .token.string,
+    .token.variable {
+      color: #0f766e;
+    }
+
+    .token.atrule,
+    .token.attr-value,
+    .token.function,
+    .token.class-name {
+      color: #b16a00d7;
+    }
+
+    .token.keyword {
+      color: #7c3aed;
+    }
+
+    .token.regex,
+    .token.important {
+      color: #be123c;
+    }
+
+    .token.bold {
+      font-weight: 600;
+    }
+
+    .token.italic {
+      font-style: italic;
+    }
+  }
 `;
 
 const LoadingState = styled.div`
@@ -233,6 +373,11 @@ const prismLanguageMap = {
 };
 
 function FileViewer({ file, onClose }) {
+  const theme = useTheme();
+  const themeIdentifiers = [theme?.mode, theme?.name, theme?.appearance, theme?.palette]
+    .filter(value => typeof value === 'string')
+    .map(value => value.toLowerCase());
+  const isDarkTheme = themeIdentifiers.includes('dark') || Boolean(theme?.isDark);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -343,6 +488,7 @@ function FileViewer({ file, onClose }) {
           </ErrorState>
         ) : (
           <CodeContent
+            data-theme={isDarkTheme ? 'dark' : 'light'}
             className={`language-${prismLang}`}
             dangerouslySetInnerHTML={{ __html: highlightedContent }}
           />
