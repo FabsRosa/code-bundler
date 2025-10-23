@@ -259,7 +259,7 @@ function BundleViewer({ bundle, loading, selectedFilesCount }) {
   }
 
   // Calculate bundle stats
-  const fileCount = bundle ? (bundle.match(/##### FILE:/g) || []).length : 0;
+  const fileCount = bundle ? (bundle.match(/##### FILE:/g) || []).length - 1 : 0;
   const lineCount = bundle ? bundle.split('\n').length : 0;
   const sizeInKB = bundle ? Math.ceil(bundle.length / 1024) : 0;
 

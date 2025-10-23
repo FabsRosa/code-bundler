@@ -193,6 +193,9 @@ function App() {
       // Build file tree from the selected files
       const fileTree = buildFileTree(projectData.files, projectData.rootPath);
 
+      // Hydrate accurate line counts before updating state
+      await populateTreeLineCounts(fileTree);
+
       // Auto-select only non-excluded files
       const selectNonExcludedFiles = (nodes) => {
         const selected = new Set();
@@ -495,7 +498,7 @@ function buildFileTree(files, rootPath) {
           isExcluded: isExcluded(part, isDirectory),
           children: {},
           file: isDirectory ? null : file,
-          lineCount: isDirectory ? 0 : countFileLines(file)
+          lineCount: 0
         };
       }
 
@@ -530,9 +533,51 @@ function buildFileTree(files, rootPath) {
   return treeWithExclusions;
 }
 
-// Count lines in a file (estimate from file size)
-function countFileLines(file) {
-  return Math.ceil(file.size / 50);
+// Populate tree with accurate line counts sourced from file contents
+async function populateTreeLineCounts(nodes) {
+  if (!Array.isArray(nodes) || nodes.length === 0) {
+    return;
+  }
+
+  const tasks = [];
+
+  const traverse = (treeNodes) => {
+    treeNodes.forEach(node => {
+      if (!node) {
+        return;
+      }
+
+      if (!node.isDirectory && node.file && typeof node.file.text === 'function') {
+        const task = node.file.text()
+          .then(content => {
+            node.lineCount = calculateLineCountFromContent(content);
+          })
+          .catch(() => {
+            node.lineCount = node.lineCount || 0;
+          });
+        tasks.push(task);
+      }
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        traverse(node.children);
+      }
+    });
+  };
+
+  traverse(nodes);
+
+  if (tasks.length > 0) {
+    await Promise.allSettled(tasks);
+  }
+}
+
+function calculateLineCountFromContent(content) {
+  if (typeof content !== 'string' || content.length === 0) {
+    return 0;
+  }
+
+  const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  return normalized === '' ? 0 : normalized.split('\n').length;
 }
 
 // Generate bundle content
